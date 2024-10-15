@@ -1,5 +1,4 @@
 import os
-import fire
 import torch
 import logging
 import argparse
