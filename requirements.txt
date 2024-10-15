@@ -1,6 +1,5 @@
 datasets==3.0.1
 evaluate==0.4.3
-fire==0.6.0
 torch==2.3.1
 torchaudio==2.3.1
 torchdata==0.8.0
