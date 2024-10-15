@@ -15,7 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='transcribe', help='Task to fine-tune.')
     parser.add_argument('--log', type=str, default='info', help='Logging level')
 
-    parser.add_argument('--pars', type=str, default=None, help="JSON dictionary to control training. Ex: \"{'train_strategy': 'steps', 'eval_steps': 1000}\" (check the train function in scripts/wisper:wisper class for allowed parameters)")
+    parser.add_argument('--pars', type=str, default=None, help="JSON dictionary to control training. Ex: \"{'train_strategy': 'steps', 'eval_steps': 1000}\" (check the train function in scripts/whisper:whisper class for allowed parameters)")
     args = parser.parse_args()
 
     

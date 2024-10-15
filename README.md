@@ -16,6 +16,6 @@ $> python ./whisper-train.py openai/whisper-small \
 ```
 
 Replace openai/whisper-small by your model if you want to fine tune a local checkpoint.
-Use --pars to control training (allowed key/value pairs can be seen in train function of scripts/wisper:whisper class).
+Use --pars to control training (allowed key/value pairs can be seen in train function of scripts/whisper:whisper class).
 
 ### segment_pakita.py
