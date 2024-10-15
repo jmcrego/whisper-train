@@ -5,7 +5,7 @@ Python script to fine-tune Whisper models.
 
 ### whisper-train.py
 
-To fine-tune the original `whisper-small` model, using train/valid datasets indicated by the following map files and saving the adapted model into my-whisper-small, use:
+To fine-tune the original `whisper-small` model, using train/valid datasets and saving the adapted model into my-whisper-small, use:
 
 ```
 $> python ./whisper-train.py openai/whisper-small \
