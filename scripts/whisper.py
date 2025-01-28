@@ -12,6 +12,7 @@ from transformers import WhisperFeatureExtractor, WhisperTokenizer, WhisperProce
 from scripts.custom_iterable_dataset import custom_iterable_dataset
 from torchdata.datapipes.iter import IterDataPipe, IterableWrapper
 
+
 def save_file(fout, lout):
     with open(fout, 'w') as f:
         for out in lout:
@@ -63,7 +64,6 @@ class whisper:
 
         self.normalizer = BasicTextNormalizer()
         self.metric = evaluate.load("wer")
-
 
     def compute_metrics(self, pred):
         logging.info('Scoring validation dataset')
@@ -174,7 +174,7 @@ class whisper:
             compute_metrics=self.compute_metrics,
             tokenizer=self.processor.feature_extractor,
         )
-        
+        self.model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
         self.trainer.train()
         logging.info('############## DONE ##############')
 
