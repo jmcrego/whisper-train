@@ -1,6 +1,6 @@
 import json
 import argparse
-from scripts import whisper
+from scripts import whisper #scripts is a package thanks to __init__.py
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Script to fine-tune Whisper models.")
