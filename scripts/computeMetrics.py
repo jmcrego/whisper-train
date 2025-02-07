@@ -20,9 +20,9 @@ class compute_metrics():
         self.bleu_metric = evaluate.load("bleu", keep_in_memory=True)
 
     def __call__(self, pred):
-        return self.whisper(pred)
+        return self.do_whisper(pred)
 
-    def whisper(self, pred):
+    def do_whisper(self, pred):
         tic = time.time()
 
         pred_ids = pred.predictions
@@ -61,5 +61,5 @@ class compute_metrics():
             save_file(os.path.join(self.save_dir, f"ref_pred_{self.trainer.state.global_step}.txt"), l)        
 
         global_step = self.trainer.state.global_step if self.trainer is not None else 0
-        logging.info(f'Step: {global_step} Scores: {scores} Took: {time.time()-tic:.2f} sec')
+        logging.info(f'Step {global_step} Scores: {scores} Took: {time.time()-tic:.2f} sec')
         return scores

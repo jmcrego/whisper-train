@@ -11,16 +11,16 @@ from scripts.customIterableDataset import custom_iterable_dataset
 from scripts.computeMetrics import compute_metrics
 from scripts.dataCollators import DataCollatorSpeechSeq2SeqWithPadding
 
-class customSeq2SeqTrainer(Seq2SeqTrainer):
-    #def save_model(self, output_dir=None): ### rewrite the save_model function of Seq2SeqTrainer
-    def save_model(self, output_dir, _internal_call=False):
-        ### Save the model
-        super().save_model(output_dir, _internal_call=_internal_call)
-        logging.info(f"Model saved to {output_dir}") #it saves the tokenizer and feature extractor
-        ### Save the tokenizer too
-        if output_dir is not None: 
-            self.processor.save_pretrained(output_dir)
-            logging.info(f"Preprocessor saved to {output_dir}") #it saves the tokenizer and feature_extractor
+#class customSeq2SeqTrainer(Seq2SeqTrainer):
+#    #def save_model(self, output_dir=None): ### rewrite the save_model function of Seq2SeqTrainer
+#    def save_model(self, output_dir, _internal_call=False):
+#        ### Save the model
+#        super().save_model(output_dir, _internal_call=_internal_call)
+#        logging.info(f"Model saved to {output_dir}") #it saves the tokenizer and feature extractor
+#        ### Save the tokenizer too
+#        if output_dir is not None: 
+#            self.processor.save_pretrained(output_dir)
+#            logging.info(f"Preprocessor saved to {output_dir}") #it saves the tokenizer and feature_extractor
 
 
 class whisper:
@@ -32,7 +32,7 @@ class whisper:
         task='transcribe', 
         log='info', 
         use_lora=False,
-        gradient_checkpointing=False,
+        gradient_checkpointing=True,
         freeze_feature_encoder=False,
         freeze_encoder=False,
         freeze_decoder=False,
@@ -66,6 +66,7 @@ class whisper:
         self.processor = WhisperProcessor.from_pretrained(self.model_name, language=self.language, task=self.task)    
         self.data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor=self.processor)
         self.normalizer = BasicTextNormalizer()
+        self.compute_metrics = compute_metrics(self.processor, normalizer=self.normalizer, trainer=None, save_dir=None)
 
         #Explicitly Set Language & Task in Model Configuration        
         self.model.config.forced_decoder_ids = self.processor.tokenizer.get_decoder_prompt_ids(language=self.language, task=self.task)
@@ -76,12 +77,12 @@ class whisper:
         self.model.config.use_cache = False 
 
         # Ensure generation_config is set correctly, and set relevant parameters in the generation config (only needed for inference "generation" phase)
-        if self.model.generation_config is None:
-            self.model.generation_config = GenerationConfig()
-        self.model.generation_config.language = self.language
-        self.model.generation_config.task = self.task
-        self.model.generation_config.forced_decoder_ids = self.model.config.forced_decoder_ids
-        self.model.generation_config.suppress_tokens = self.model.config.suppress_tokens
+        #if self.model.generation_config is None:
+        #    self.model.generation_config = GenerationConfig()
+        #self.model.generation_config.language = self.language
+        #self.model.generation_config.task = self.task
+        #self.model.generation_config.forced_decoder_ids = self.model.config.forced_decoder_ids
+        #self.model.generation_config.suppress_tokens = self.model.config.suppress_tokens
 
         if freeze_feature_encoder:
             self.model.freeze_feature_encoder() ### already freezed if LoRA
@@ -99,19 +100,14 @@ class whisper:
             # Gradient checkpointing (optional). It saves memory by recomputing activations during the backward pass (with LoRA not really needed since few parameters). 
             # However, with a quantized model (like 8-bit or 4-bit quantization with bitsandbytes), gradient checkpointing can still be useful.
             self.model.gradient_checkpointing_enable()  # If memory is an issue
-        else:
-            self.model.gradient_checkpointing_disable()  # do not use gradient_checkpointing
 
         logging.info(self.model.config)
-
 
     def train(
         self,
         train_datasets,
         eval_datasets,
         output_dir,
-        train_strategy='steps',
-        num_epochs = 1,
         logging_steps = 25,
         eval_steps = 1000,
         save_steps = 1000,
@@ -123,15 +119,9 @@ class whisper:
         lr_scheduler_type="constant_with_warmup",
         seed=None,
     ):
-
-        if train_strategy not in ['steps', 'epoch']:
-            raise ValueError(f"--train_strategy should be steps or epoch, not {train_strategy}.")
-    
-        self.output_dir= output_dir
-        self.eval_steps = eval_steps
-    
-        self.processor.save_pretrained(self.output_dir) # Save processor
-        self.processor.tokenizer.save_pretrained(self.output_dir) # Save tokenizer
+        
+        self.processor.save_pretrained(output_dir) # Save processor
+        self.processor.tokenizer.save_pretrained(output_dir) # Save tokenizer
 
         logging.info('############## DATASET LOADING... ##############')
     
@@ -143,15 +133,14 @@ class whisper:
         ds_eval  = custom_iterable_dataset(eval_datasets,  language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=None, processor=self.processor, firstn=100)
     
         logging.info('############## TRAINING... ##############')
-
-        if train_strategy == 'epoch':
-            p = {"eval_strategy": "epoch", "save_strategy": "epoch", "num_train_epochs": num_epochs}
-        else:
-            p = {"eval_strategy": "steps", "eval_steps": eval_steps, "save_strategy": "steps", "save_steps": save_steps, "max_steps": max_steps}
             
         training_args = Seq2SeqTrainingArguments(
-            **p,
-            output_dir=self.output_dir,
+            eval_strategy="steps",
+            eval_steps=eval_steps,
+            save_strategy="steps", 
+            save_steps=save_steps, 
+            max_steps=max_steps,
+            output_dir=output_dir,
             per_device_train_batch_size=batch_size,
             gradient_accumulation_steps=gradient_accum,
             learning_rate=learning_rate,
@@ -171,9 +160,7 @@ class whisper:
             eval_on_start=True,
         )
 
-        self.compute_metrics = compute_metrics(self.processor, normalizer=self.normalizer, trainer=None, save_dir=self.output_dir)
-
-        self.trainer = Seq2SeqTrainer(
+        trainer = Seq2SeqTrainer(
             args=training_args,
             model=self.model,
             train_dataset=ds_train,
@@ -183,17 +170,20 @@ class whisper:
             processing_class=self.processor.feature_extractor,
         )
 
-        # Inject trainer into compute_metrics to allow compute_metrics access to self.trainer.state.global_step
-        self.compute_metrics.trainer = self.trainer
+        # Inject trainer, output_dir into compute_metrics to allow compute_metrics access to trainer.state.global_step and to write refs/hyps
+        self.compute_metrics.trainer = trainer
+        self.compute_metrics.save_dir = output_dir
+        # Inject trainer into data_collator to allow data_collator access to trainer.state.global_step
+        self.data_collator.trainer = trainer
 
         resume_checkpoint = self.model_name if os.path.exists(self.model_name) else None
-        self.trainer.train(resume_from_checkpoint=resume_checkpoint)
+        trainer.train() #resume_from_checkpoint=resume_checkpoint)
 
         if self.use_lora:
             self.model = self.model.merge_and_unload() # Merges LoRA weights into original model
-            self.model.save_pretrained(self.output_dir+"_merged")  # Save the new model
-            self.processor.save_pretrained(self.output_dir+"_merged") # Save processor
-            self.processor.tokenizer.save_pretrained(self.output_dir+"_merged") # Save tokenizer
+            self.model.save_pretrained(output_dir+"_merged")  # Save the new model
+            self.processor.save_pretrained(output_dir+"_merged") # Save processor
+            self.processor.tokenizer.save_pretrained(output_dir+"_merged") # Save tokenizer
 
         logging.info('############## DONE ##############')
 
