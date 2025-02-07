@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', type=str, default='transcribe', help='Task to fine-tune.')
     parser.add_argument('--log', type=str, default='info', help='Logging level')
     parser.add_argument('--pars', type=str, default=None, help="JSON dictionary to control training. Ex: '{\"train_strategy\": \"steps\", \"eval_steps\": 1000}' (check the train function in whisperPeft:train() for allowed parameters)")
-    parser.add_argument('--use_lora', action='store_true', help='Fine-tune Whisper with LoRA adaptors')
+    parser.add_argument('--use_lora', action='store_true', help='Use LoRA adaptors to fine-tune Whisper')
     args = parser.parse_args()
 
     w = whisper(model_name=args.model, language=args.language, task=args.task, log=args.log, use_lora=args.use_lora)
