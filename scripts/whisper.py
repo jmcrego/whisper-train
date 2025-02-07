@@ -164,7 +164,6 @@ class whisper:
             metric_for_best_model="wer",
             greater_is_better=False,
             optim="adamw_bnb_8bit",
-            resume_from_checkpoint=True if os.path.exists(output_dir) else None,
             eval_on_start=True,
         )
 
@@ -182,7 +181,7 @@ class whisper:
 
         # Inject trainer into compute_metrics to allow compute_metrics access to self.trainer.state.global_step
         self.compute_metrics.trainer = self.trainer
-        self.trainer.train()
+        self.trainer.train(resume_from_checkpoint=self.model if os.path.exists(self.model) else None)
 
         if self.use_lora:
             self.model = self.model.merge_and_unload() # Merges LoRA weights into original model
