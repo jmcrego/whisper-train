@@ -37,6 +37,7 @@ class whisper:
         freeze_encoder=False,
         freeze_decoder=False,
     ):
+        logging.info(f"whisper.init: {{key: value for key, value in locals().items() if key != 'self'}}")
         self.model_name = model_name
         self.language = language
         self.task = task
@@ -108,9 +109,9 @@ class whisper:
         train_datasets,
         eval_datasets,
         output_dir,
-        logging_steps = 25,
-        eval_steps = 1000,
-        save_steps = 1000,
+        logging_steps = 5,
+        eval_steps = 100,
+        save_steps = 100,
         max_steps = 50000,
         warmup_steps = 100,
         batch_size = 32,
@@ -119,7 +120,7 @@ class whisper:
         lr_scheduler_type="constant_with_warmup",
         seed=None,
     ):
-        
+        logging.info(f"whisper.train: {{key: value for key, value in locals().items() if key != 'self'}}")
         self.processor.save_pretrained(output_dir) # Save processor
         self.processor.tokenizer.save_pretrained(output_dir) # Save tokenizer
 
@@ -139,6 +140,8 @@ class whisper:
             eval_steps=eval_steps,
             save_strategy="steps", 
             save_steps=save_steps, 
+            logging_strategy="steps", 
+            logging_steps=logging_steps,
             max_steps=max_steps,
             output_dir=output_dir,
             per_device_train_batch_size=batch_size,
@@ -146,7 +149,6 @@ class whisper:
             learning_rate=learning_rate,
             lr_scheduler_type=lr_scheduler_type,
             warmup_steps=warmup_steps,
-            logging_steps=logging_steps,
             fp16=True,
             save_total_limit=5,
             per_device_eval_batch_size=batch_size,
