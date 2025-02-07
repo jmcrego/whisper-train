@@ -102,9 +102,6 @@ class whisper:
         else:
             self.model.gradient_checkpointing_disable()  # do not use gradient_checkpointing
 
-        self.processor.save_pretrained(self.output_dir) # Save processor
-        self.processor.tokenizer.save_pretrained(self.output_dir) # Save tokenizer
-
         logging.info(self.model.config)
 
 
@@ -132,7 +129,10 @@ class whisper:
     
         self.output_dir= output_dir
         self.eval_steps = eval_steps
-        
+    
+        self.processor.save_pretrained(self.output_dir) # Save processor
+        self.processor.tokenizer.save_pretrained(self.output_dir) # Save tokenizer
+
         logging.info('############## DATASET LOADING... ##############')
     
         min_label_length = 5 + 3
