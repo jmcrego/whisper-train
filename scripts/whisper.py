@@ -10,11 +10,12 @@ from torchdata.datapipes.iter import IterDataPipe, IterableWrapper ###needs torc
 from scripts.customIterableDataset import custom_iterable_dataset
 from scripts.computeMetrics import compute_metrics
 from scripts.dataCollators import DataCollatorSpeechSeq2SeqWithPadding
-    
+
 class customSeq2SeqTrainer(Seq2SeqTrainer):
-    def save_model(self, output_dir=None): ### rewrite the save_model function of Seq2SeqTrainer
+    #def save_model(self, output_dir=None): ### rewrite the save_model function of Seq2SeqTrainer
+    def save_model(self, output_dir, _internal_call=False):
         ### Save the model
-        super().save_model(output_dir)
+        super().save_model(output_dir, _internal_call=_internal_call)
         logging.info(f"Model saved to {output_dir}") #it saves the tokenizer and feature extractor
         ### Save the tokenizer too
         if output_dir is not None: 
@@ -31,7 +32,7 @@ class whisper:
         task='transcribe', 
         log='info', 
         use_lora=False,
-        gradient_checkpointing=True,
+        gradient_checkpointing=False,
         freeze_feature_encoder=False,
         freeze_encoder=False,
         freeze_decoder=False,
@@ -101,6 +102,9 @@ class whisper:
         else:
             self.model.gradient_checkpointing_disable()  # do not use gradient_checkpointing
 
+        self.processor.save_pretrained(self.output_dir) # Save processor
+        self.processor.tokenizer.save_pretrained(self.output_dir) # Save tokenizer
+
         logging.info(self.model.config)
 
 
@@ -169,7 +173,7 @@ class whisper:
 
         self.compute_metrics = compute_metrics(self.processor, normalizer=self.normalizer, trainer=None, save_dir=self.output_dir)
 
-        self.trainer = customSeq2SeqTrainer(
+        self.trainer = Seq2SeqTrainer(
             args=training_args,
             model=self.model,
             train_dataset=ds_train,
