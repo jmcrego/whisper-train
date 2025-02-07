@@ -11,6 +11,17 @@ from scripts.customIterableDataset import custom_iterable_dataset
 from scripts.computeMetrics import compute_metrics
 from scripts.dataCollators import DataCollatorSpeechSeq2SeqWithPadding
     
+class customSeq2SeqTrainer(Seq2SeqTrainer):
+    def save_model(self, output_dir=None): ### rewrite the save_model function of Seq2SeqTrainer
+        ### Save the model
+        super().save_model(output_dir)
+        logging.info(f"Model saved to {output_dir}") #it saves the tokenizer and feature extractor
+        ### Save the tokenizer too
+        if output_dir is not None: 
+            self.processor.save_pretrained(output_dir)
+            logging.info(f"Preprocessor saved to {output_dir}") #it saves the tokenizer and feature_extractor
+
+
 class whisper:
     
     def __init__(
@@ -143,7 +154,6 @@ class whisper:
             lr_scheduler_type=lr_scheduler_type,
             warmup_steps=warmup_steps,
             logging_steps=logging_steps,
-            gradient_checkpointing=gradient_checkpointing, #use model.gradient_checkpointing_enable() instead of this option
             fp16=True,
             save_total_limit=5,
             per_device_eval_batch_size=batch_size,
@@ -154,13 +164,13 @@ class whisper:
             metric_for_best_model="wer",
             greater_is_better=False,
             optim="adamw_bnb_8bit",
-            resume_from_checkpoint=None,
+            resume_from_checkpoint=True if os.path.exists(output_dir) else None,
             eval_on_start=True,
         )
 
         self.compute_metrics = compute_metrics(self.processor, normalizer=self.normalizer, trainer=None, save_dir=self.output_dir)
 
-        self.trainer = Seq2SeqTrainer(
+        self.trainer = customSeq2SeqTrainer(
             args=training_args,
             model=self.model,
             train_dataset=ds_train,
@@ -168,7 +178,6 @@ class whisper:
             data_collator=self.data_collator,
             compute_metrics=self.compute_metrics,
             processing_class=self.processor.feature_extractor,
-            #resume_from_checkpoint=True if os.path.exists(output_dir) else None,
         )
 
         # Inject trainer into compute_metrics to allow compute_metrics access to self.trainer.state.global_step
