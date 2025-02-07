@@ -181,7 +181,9 @@ class whisper:
 
         # Inject trainer into compute_metrics to allow compute_metrics access to self.trainer.state.global_step
         self.compute_metrics.trainer = self.trainer
-        self.trainer.train(resume_from_checkpoint=self.model if os.path.exists(self.model) else None)
+
+        resume_checkpoint = self.model_name if os.path.exists(self.model_name) else None
+        self.trainer.train(resume_from_checkpoint=resume_checkpoint)
 
         if self.use_lora:
             self.model = self.model.merge_and_unload() # Merges LoRA weights into original model
