@@ -2,9 +2,10 @@ import os
 import torch
 import logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Only show ERROR and FATAL logs produced by tensorflow in the next imports
-from transformers import WhisperProcessor, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer, GenerationConfig
+from transformers import WhisperProcessor, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer, GenerationConfig, BitsAndBytesConfig
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from torchdata.datapipes.iter import IterDataPipe, IterableWrapper ###needs torchdata <0.10.0 i used: pip install torchdata==0.9.0
+from peft import LoraConfig, get_peft_model
 
 # to import the required classes from the same package (scripts), use relative/absolute imports (thanks to __init__.py).
 from scripts.customIterableDataset import custom_iterable_dataset
@@ -25,19 +26,8 @@ from scripts.dataCollators import DataCollatorSpeechSeq2SeqWithPadding
 
 class whisper:
     
-    def __init__(
-        self, 
-        model_name='openai/whisper-medium', 
-        language='french', 
-        task='transcribe', 
-        log='info', 
-        use_lora=False,
-        gradient_checkpointing=True,
-        freeze_feature_encoder=False,
-        freeze_encoder=False,
-        freeze_decoder=False,
-    ):
-        logging.info(f"whisper.init: {{key: value for key, value in locals().items() if key != 'self'}}")
+    def __init__(self, model_name='openai/whisper-medium', language='french', task='transcribe', log='info', use_lora=False):
+#        logging.info(f"whisper.init: {{key: value for key, value in locals().items() if key != 'self'}}")
         self.model_name = model_name
         self.language = language
         self.task = task
@@ -47,19 +37,22 @@ class whisper:
         logging.getLogger('tensorflow').setLevel(logging.ERROR)
         logging.info(f"GPU is avalaible with {torch.cuda.device_count()} device(s)" if torch.cuda.is_available() else "GPU is not avalaible")
 
+        gradient_checkpointing=True
+        freeze_feature_encoder=False
+        freeze_encoder=False
+        freeze_decoder=False
+        # Manually clear GPU memory
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
         logging.info('############## MODEL LOADING... ##############')
     
         if self.use_lora:
-            from transformers import BitsAndBytesConfig
-            from peft import LoraConfig, get_peft_model
             bnb_config = None #BitsAndBytesConfig(load_in_8bit=True)
             self.model = WhisperForConditionalGeneration.from_pretrained(self.model_name, quantization_config=bnb_config, device_map="cuda")
-            self.model.gradient_checkpointing_enable() # Ensure gradient checkpointing for memory efficiency
             lora_config = LoraConfig(r=32, lora_alpha=64, lora_dropout=0.1, bias="none", target_modules=["q_proj", "v_proj"]) # Define LoRA configuration
             self.model = get_peft_model(self.model, lora_config) # Wrap model with PEFT (only LoRA layers are trainable)
             self.model.print_trainable_parameters()  # Show trainable params
-            #from peft import prepare_model_for_kbit_training 
-            #self.model = prepare_model_for_kbit_training(self.model)
 
         else:
             self.model = WhisperForConditionalGeneration.from_pretrained(self.model_name, device_map="cuda")
@@ -77,20 +70,11 @@ class whisper:
         # Disable caching (needed for training)
         self.model.config.use_cache = False 
 
-        # Ensure generation_config is set correctly, and set relevant parameters in the generation config (only needed for inference "generation" phase)
-        #if self.model.generation_config is None:
-        #    self.model.generation_config = GenerationConfig()
-        #self.model.generation_config.language = self.language
-        #self.model.generation_config.task = self.task
-        #self.model.generation_config.forced_decoder_ids = self.model.config.forced_decoder_ids
-        #self.model.generation_config.suppress_tokens = self.model.config.suppress_tokens
-
         if freeze_feature_encoder:
             self.model.freeze_feature_encoder() ### already freezed if LoRA
 
         if freeze_encoder:
             self.model.freeze_encoder() ### already freezed if LoRA
-            #self.model.model.encoder.gradient_checkpointing = False
 
         if freeze_decoder:
             #attention! freezing the decoder might stop LoRA layers from updating. You better freeze parts of the decoder
@@ -102,6 +86,14 @@ class whisper:
             # However, with a quantized model (like 8-bit or 4-bit quantization with bitsandbytes), gradient checkpointing can still be useful.
             self.model.gradient_checkpointing_enable()  # If memory is an issue
 
+        # Ensure generation_config is set correctly, and set relevant parameters in the generation config (only needed for inference "generation" phase)
+        #if self.model.generation_config is None:
+        #    self.model.generation_config = GenerationConfig()
+        #self.model.generation_config.language = self.language
+        #self.model.generation_config.task = self.task
+        #self.model.generation_config.forced_decoder_ids = self.model.config.forced_decoder_ids
+        #self.model.generation_config.suppress_tokens = self.model.config.suppress_tokens
+
         logging.info(self.model.config)
 
     def train(
@@ -110,17 +102,17 @@ class whisper:
         eval_datasets,
         output_dir,
         logging_steps = 5,
-        eval_steps = 100,
-        save_steps = 100,
-        max_steps = 50000,
+        eval_steps = 50,
+        save_steps = 50,
+        max_steps = 5000,
         warmup_steps = 100,
         batch_size = 32,
-        learning_rate = 2.5e-5,
+        learning_rate = 5e-6,
         gradient_accum = 1,
-        lr_scheduler_type="constant_with_warmup",
+        lr_scheduler_type="linear_with_warmup",
         seed=None,
     ):
-        logging.info(f"whisper.train: {{key: value for key, value in locals().items() if key != 'self'}}")
+#        logging.info(f"whisper.train: {{key: value for key, value in locals().items() if key != 'self'}}")
         self.processor.save_pretrained(output_dir) # Save processor
         self.processor.tokenizer.save_pretrained(output_dir) # Save tokenizer
 
@@ -131,16 +123,17 @@ class whisper:
         min_duration = 0.0
         max_duration = 30.0
         ds_train = custom_iterable_dataset(train_datasets, language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=seed, processor=self.processor)
-        ds_eval  = custom_iterable_dataset(eval_datasets,  language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=None, processor=self.processor, firstn=100)
+        ds_eval  = custom_iterable_dataset(eval_datasets,  language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=None, processor=self.processor, firstn=500)
     
         logging.info('############## TRAINING... ##############')
             
-        training_args = Seq2SeqTrainingArguments(
+        ### https://huggingface.co/docs/transformers/main/main_classes/trainer#transformers.Seq2SeqTrainingArguments
+        training_args = Seq2SeqTrainingArguments( 
             eval_strategy="steps",
-            eval_steps=eval_steps,
             save_strategy="steps", 
-            save_steps=save_steps, 
             logging_strategy="steps", 
+            eval_steps=eval_steps,
+            save_steps=save_steps, 
             logging_steps=logging_steps,
             max_steps=max_steps,
             output_dir=output_dir,
@@ -149,16 +142,19 @@ class whisper:
             learning_rate=learning_rate,
             lr_scheduler_type=lr_scheduler_type,
             warmup_steps=warmup_steps,
+            optim="adamw_bnb_8bit",
             fp16=True,
-            save_total_limit=5,
-            per_device_eval_batch_size=batch_size,
+            per_device_eval_batch_size=batch_size//2, # reduce memory needs
+### next are for generation over the validation set
             predict_with_generate=True,
             generation_max_length=225,
+            generation_num_beams=1,
+### evaluation and saving
             report_to=["tensorboard"],
-            load_best_model_at_end=True,
+            load_best_model_at_end=True, # best checkpoint will always be saved
             metric_for_best_model="wer",
             greater_is_better=False,
-            optim="adamw_bnb_8bit",
+            save_total_limit=2,
             eval_on_start=True,
         )
 
@@ -172,7 +168,7 @@ class whisper:
             processing_class=self.processor.feature_extractor,
         )
 
-        # Inject trainer, output_dir into compute_metrics to allow compute_metrics access to trainer.state.global_step and to write refs/hyps
+        # Inject trainer/output_dir into compute_metrics to allow compute_metrics access to trainer.state.global_step and to save refs/hyps
         self.compute_metrics.trainer = trainer
         self.compute_metrics.save_dir = output_dir
         # Inject trainer into data_collator to allow data_collator access to trainer.state.global_step
