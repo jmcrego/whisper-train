@@ -5,7 +5,7 @@ import logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Only show ERROR and FATAL logs produced by tensorflow in the next imports
 from transformers import WhisperProcessor, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer, TrainerCallback, GenerationConfig, BitsAndBytesConfig
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
-from torchdata.datapipes.iter import IterDataPipe, IterableWrapper ###needs torchdata <0.10.0 i used: pip install torchdata==0.9.0
+#from torchdata.datapipes.iter import IterDataPipe#, IterableWrapper ###needs torchdata <0.10.0 i used: pip install torchdata==0.9.0
 from peft import LoraConfig, get_peft_model
 
 # to import the required classes from the same package (scripts), use relative/absolute imports (thanks to __init__.py).
@@ -176,10 +176,11 @@ class whisper:
         self.compute_metrics.trainer = trainer
         self.compute_metrics.save_dir = output_dir
 
-        if os.path.exists(output_dir):
-            logging.info(f'resume training from {output_dir} last checkpoint')
+        checkpoint_dirs = [d for d in os.listdir(output_dir) if d.startswith("checkpoint-") and os.path.isdir(os.path.join(output_dir, d))]
+        if len(checkpoint_dirs):
+            logging.info(f'resume training from {output_dir} with {len(checkpoint_dirs)} checkpoints')
         logging.info(f"Starting training at step: {trainer.state.global_step}")
-        trainer.train(resume_from_checkpoint=os.path.exists(output_dir))
+        trainer.train(resume_from_checkpoint=len(checkpoint_dirs)>0)
 
         if self.use_lora:
             self.model = self.model.merge_and_unload() # Merges LoRA weights into original model

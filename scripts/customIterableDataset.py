@@ -3,7 +3,7 @@ import random
 import argparse
 import logging
 from functools import partial
-from datasets import Dataset, Audio #, Value, IterableDataset
+from datasets import Dataset, Audio#, IterableDataset #, Value
 from torchdata.datapipes.iter import IterableWrapper ###needs torchdata <0.10.0 i used: pip install torchdata==0.9.0
 
 noise = r"\[[^\s\]]+\]"
@@ -14,6 +14,14 @@ apost = r"(\w')\s+(\w)"
 chars = r"[\(\)\*&]"
 initp = r"^\s*[,.!?;:]\s+"
 spaces = r"\s\s+"
+
+class IterableWrapperWithLen(IterableWrapper):
+    def __init__(self, dataset, length):
+        super().__init__(dataset)  # Initialize parent class
+        self.length = length  # Manually specify length
+
+    def __len__(self):
+        return self.length  # Define the length explicitly
 
 def clean_sentence(e):
     txt = e['sentence']
@@ -81,7 +89,9 @@ def custom_iterable_dataset(files, language="french", sr=16000, mind=None, maxd=
 
     logging.info(f'dataset: cast Audio(sampling_rate={sr})')
     ds = ds.cast_column("audio", Audio(sampling_rate=sr))
-    ds = ds.to_iterable_dataset()
+    len_ds = len(ds)
+
+    ds = ds.to_iterable_dataset()    
     
     if clean:
         logging.info('dataset: clean sentence')
@@ -101,7 +111,7 @@ def custom_iterable_dataset(files, language="french", sr=16000, mind=None, maxd=
         filter_func = partial(filter_by_length, minl=minl, maxl=maxl)
         ds = ds.filter(filter_func)
 
-    return IterableWrapper(ds) #IterableWrapper is needed to avoid the lack of __len__ on iterabledataset
+    return IterableWrapperWithLen(ds, len_ds) #IterableWrapper is needed to avoid the lack of __len__ on iterabledataset
 
 
 if __name__=='__main__':
