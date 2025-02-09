@@ -60,6 +60,6 @@ class compute_metrics():
             l = [f"{r.strip()}\t{p.strip()}" for r, p in zip(label_str, pred_str)]
             save_file(os.path.join(self.save_dir, f"ref_pred_{self.trainer.state.global_step}.txt"), l)        
 
-        global_step = self.trainer.state.global_step if self.trainer is not None else 0
-        logging.info(f'Step {global_step} Scores: {scores} Took: {time.time()-tic:.2f} sec')
+#        global_step = self.trainer.state.global_step if self.trainer is not None else '-'
+#        logging.info(f'Step {global_step} Scores: {scores} Took: {time.time()-tic:.2f} sec')
         return scores

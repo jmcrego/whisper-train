@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Union
 @dataclass
 class DataCollatorSpeechSeq2SeqWithPadding:
     processor: Any
-    trainer: Any = field(default=None)
+    #trainer: Any = field(default=None)
 
     def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
         input_features = [{"input_features": feature["input_features"]} for feature in features] # get the input features
@@ -19,6 +19,6 @@ class DataCollatorSpeechSeq2SeqWithPadding:
         if (labels[:, 0] == self.processor.tokenizer.bos_token_id).all().cpu().item(): # if bos token is appended in previous tokenization step, cut bos token here as it's append later anyways
             labels = labels[:, 1:]
         batch["labels"] = labels
-        global_step = self.trainer.state.global_step+1 if self.trainer is not None else ''
-        logging.info(f'Step {global_step} batch: input_features.shape={list(batch["input_features"].shape)} (batch_size, mel_filters, frames) labels.shape={list(batch["labels"].shape)} (batch_size, seq_len)')
+        #global_step = self.trainer.state.global_step+1 if self.trainer is not None else ''
+        #logging.info(f'Step {global_step} batch: input_features.shape={list(batch["input_features"].shape)} (batch_size, mel_filters, frames) labels.shape={list(batch["labels"].shape)} (batch_size, seq_len)')
         return batch

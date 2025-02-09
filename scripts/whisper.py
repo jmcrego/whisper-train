@@ -1,8 +1,9 @@
 import os
+import time
 import torch
 import logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Only show ERROR and FATAL logs produced by tensorflow in the next imports
-from transformers import WhisperProcessor, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer, GenerationConfig, BitsAndBytesConfig
+from transformers import WhisperProcessor, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer, TrainerCallback, GenerationConfig, BitsAndBytesConfig
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from torchdata.datapipes.iter import IterDataPipe, IterableWrapper ###needs torchdata <0.10.0 i used: pip install torchdata==0.9.0
 from peft import LoraConfig, get_peft_model
@@ -11,6 +12,7 @@ from peft import LoraConfig, get_peft_model
 from scripts.customIterableDataset import custom_iterable_dataset
 from scripts.computeMetrics import compute_metrics
 from scripts.dataCollators import DataCollatorSpeechSeq2SeqWithPadding
+from scripts.callbacks import WhisperCallback
 
 #class customSeq2SeqTrainer(Seq2SeqTrainer):
 #    #def save_model(self, output_dir=None): ### rewrite the save_model function of Seq2SeqTrainer
@@ -158,6 +160,7 @@ class whisper:
             eval_on_start=True,
         )
 
+        ### https://huggingface.co/docs/transformers/main/main_classes/trainer#transformers.Seq2SeqTrainer
         trainer = Seq2SeqTrainer(
             args=training_args,
             model=self.model,
@@ -166,16 +169,17 @@ class whisper:
             data_collator=self.data_collator,
             compute_metrics=self.compute_metrics,
             processing_class=self.processor.feature_extractor,
+            callbacks=[WhisperCallback()]
         )
 
-        # Inject trainer/output_dir into compute_metrics to allow compute_metrics access to trainer.state.global_step and to save refs/hyps
+        # Inject trainer/output_dir into compute_metrics to allow access to trainer.state.global_step and to save refs/hyps
         self.compute_metrics.trainer = trainer
         self.compute_metrics.save_dir = output_dir
-        # Inject trainer into data_collator to allow data_collator access to trainer.state.global_step
-        self.data_collator.trainer = trainer
 
-        resume_checkpoint = self.model_name if os.path.exists(self.model_name) else None
-        trainer.train() #resume_from_checkpoint=resume_checkpoint)
+        if os.path.exists(output_dir):
+            logging.info(f'resume training from {output_dir} last checkpoint')
+        logging.info(f"Starting training at step: {trainer.state.global_step}")
+        trainer.train(resume_from_checkpoint=os.path.exists(output_dir))
 
         if self.use_lora:
             self.model = self.model.merge_and_unload() # Merges LoRA weights into original model
