@@ -61,7 +61,7 @@ def add_input_features_and_label_ids(p):
         return e
     return process_example
 
-def custom_iterable_dataset(files, language="french", sr=16000, mind=None, maxd=None, minl=None, maxl=None, clean=False, seed=None, processor=None, firstn=0):
+def custom_iterable_dataset(files, language="french", sr=16000, mind=None, maxd=None, minl=None, maxl=None, clean=False, seed=None, processor=None, firstn=0, iterable=True):
     #logging.info(f"custom_iterable_dataset: {locals()}")
     paths, sentences, languages = [], [], []
     for i in range(len(files)):
@@ -89,9 +89,10 @@ def custom_iterable_dataset(files, language="french", sr=16000, mind=None, maxd=
 
     logging.info(f'dataset: cast Audio(sampling_rate={sr})')
     ds = ds.cast_column("audio", Audio(sampling_rate=sr))
-    len_ds = len(ds)
 
-    ds = ds.to_iterable_dataset()    
+    if iterable:
+        len_ds = len(ds)
+        ds = ds.to_iterable_dataset()    
     
     if clean:
         logging.info('dataset: clean sentence')
@@ -111,7 +112,10 @@ def custom_iterable_dataset(files, language="french", sr=16000, mind=None, maxd=
         filter_func = partial(filter_by_length, minl=minl, maxl=maxl)
         ds = ds.filter(filter_func)
 
-    return IterableWrapperWithLen(ds, len_ds) #IterableWrapper is needed to avoid the lack of __len__ on iterabledataset
+    if iterable:
+        return IterableWrapperWithLen(ds, len_ds) 
+    else:
+        return ds
 
 
 if __name__=='__main__':

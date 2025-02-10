@@ -125,7 +125,7 @@ class whisper:
         min_duration = 0.0
         max_duration = 30.0
         ds_train = custom_iterable_dataset(train_datasets, language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=seed, processor=self.processor)
-        ds_eval  = custom_iterable_dataset(eval_datasets,  language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=None, processor=self.processor, firstn=500)
+        ds_eval  = custom_iterable_dataset(eval_datasets,  language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=None, processor=self.processor, firstn=500, iterable=False)
     
         logging.info('############## TRAINING... ##############')
             
