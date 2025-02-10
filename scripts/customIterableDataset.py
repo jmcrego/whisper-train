@@ -113,8 +113,10 @@ def custom_iterable_dataset(files, language="french", sr=16000, mind=None, maxd=
         ds = ds.filter(filter_func)
 
     if iterable:
+        logging.info(f'dataset: iterable dataset (len={len_ds})')
         return IterableWrapperWithLen(ds, len_ds) 
     else:
+        logging.info(f'dataset: kept {len(ds)} examples after filtering')
         return ds
 
 

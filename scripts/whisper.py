@@ -112,6 +112,7 @@ class whisper:
         learning_rate = 5e-6,
         gradient_accum = 1,
         lr_scheduler_type="linear_with_warmup",
+        resume_from=None,
         seed=None,
     ):
 #        logging.info(f"whisper.train: {{key: value for key, value in locals().items() if key != 'self'}}")
@@ -126,7 +127,14 @@ class whisper:
         max_duration = 30.0
         ds_train = custom_iterable_dataset(train_datasets, language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=seed, processor=self.processor)
         ds_eval  = custom_iterable_dataset(eval_datasets,  language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=None, processor=self.processor, firstn=500, iterable=False)
-    
+
+        logging.info(f"Training dataset size: {len(ds_train)}")
+        logging.info(f"Batch size: {batch_size}")
+        steps_per_epoch = len(ds_train) // (batch_size * gradient_accum)
+        total_epochs = max_steps / steps_per_epoch
+        logging.info(f"Expected total epochs: {total_epochs}")
+        logging.info(f"Max Steps: {max_steps}")
+
         logging.info('############## TRAINING... ##############')
             
         ### https://huggingface.co/docs/transformers/main/main_classes/trainer#transformers.Seq2SeqTrainingArguments
@@ -138,6 +146,7 @@ class whisper:
             save_steps=save_steps, 
             logging_steps=logging_steps,
             max_steps=max_steps,
+            num_train_epochs=99,  # This seems to be needed to disalow stopping
             output_dir=output_dir,
             per_device_train_batch_size=batch_size,
             gradient_accumulation_steps=gradient_accum,
@@ -172,15 +181,17 @@ class whisper:
             callbacks=[WhisperCallback()]
         )
 
+        remaining_steps = training_args.max_steps - trainer.state.global_step
+        trainer.args.max_steps = remaining_steps
+        logging.info(f"Max Steps in Trainer: {trainer.args.max_steps}")
+        logging.info(f"Num Train Epochs in Trainer: {trainer.args.num_train_epochs}")
+
         # Inject trainer/output_dir into compute_metrics to allow access to trainer.state.global_step and to save refs/hyps
         self.compute_metrics.trainer = trainer
         self.compute_metrics.save_dir = output_dir
 
-        checkpoint_dirs = [d for d in os.listdir(output_dir) if d.startswith("checkpoint-") and os.path.isdir(os.path.join(output_dir, d))]
-        if len(checkpoint_dirs):
-            logging.info(f'resume training from {output_dir} with {len(checkpoint_dirs)} checkpoints')
-        logging.info(f"Starting training at step: {trainer.state.global_step}")
-        trainer.train(resume_from_checkpoint=len(checkpoint_dirs)>0)
+        logging.info(f'Resume training from {resume_from}')
+        trainer.train(resume_from_checkpoint=resume_from)
 
         if self.use_lora:
             self.model = self.model.merge_and_unload() # Merges LoRA weights into original model
