@@ -116,17 +116,18 @@ class whisper:
         seed=None,
     ):
 #        logging.info(f"whisper.train: {{key: value for key, value in locals().items() if key != 'self'}}")
-        self.processor.save_pretrained(output_dir) # Save processor
-        self.processor.tokenizer.save_pretrained(output_dir) # Save tokenizer
+        config_dir = os.path.join(output_dir, "config")
+        self.processor.save_pretrained(config_dir) # Save processor
+        self.processor.tokenizer.save_pretrained(config_dir) # Save tokenizer
 
         logging.info('############## DATASET LOADING... ##############')
     
-        min_label_length = 5 + 3
-        max_label_length = self.model.config.max_length
-        min_duration = 0.0
-        max_duration = 30.0
-        ds_train = custom_iterable_dataset(train_datasets, language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=seed, processor=self.processor)
-        ds_eval  = custom_iterable_dataset(eval_datasets,  language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=None, processor=self.processor, firstn=500, iterable=False)
+        min_label_length = None #5 + 3
+        max_label_length = None #self.model.config.max_length
+        min_duration = None #0.0
+        max_duration = None #30.0
+        ds_train = custom_iterable_dataset(train_datasets, language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=False, seed=seed, processor=self.processor, iterable=True)
+        ds_eval  = custom_iterable_dataset(eval_datasets,  language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=False, seed=None, processor=self.processor, iterable=False)
 
         logging.info(f"Training dataset size: {len(ds_train)}")
         logging.info(f"Batch size: {batch_size}")
@@ -170,6 +171,7 @@ class whisper:
         )
 
         ### https://huggingface.co/docs/transformers/main/main_classes/trainer#transformers.Seq2SeqTrainer
+        callbacks = WhisperCallback()
         trainer = Seq2SeqTrainer(
             args=training_args,
             model=self.model,
@@ -178,7 +180,7 @@ class whisper:
             data_collator=self.data_collator,
             compute_metrics=self.compute_metrics,
             processing_class=self.processor.feature_extractor,
-            callbacks=[WhisperCallback()]
+            callbacks=[callbacks]
         )
 
         remaining_steps = training_args.max_steps - trainer.state.global_step
@@ -188,7 +190,9 @@ class whisper:
 
         # Inject trainer/output_dir into compute_metrics to allow access to trainer.state.global_step and to save refs/hyps
         self.compute_metrics.trainer = trainer
-        self.compute_metrics.save_dir = output_dir
+        self.compute_metrics.save_dir = output_dir + '/eval'
+        # Inject trainer into callbacks
+        callbacks.processor = self.processor
 
         logging.info(f'Resume training from {resume_from}')
         trainer.train(resume_from_checkpoint=resume_from)

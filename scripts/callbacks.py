@@ -6,6 +6,7 @@ class WhisperCallback(TrainerCallback):
     def __init__(self):
         self.prev_step = 0
         self.prev_time = time.time()
+        self.processor = None
 
     def on_evaluate(self, args, state, control, metrics=None, eval_dataloader=None, **kwargs):
         """Logs evaluation metrics after each evaluation step."""
@@ -55,11 +56,9 @@ class WhisperCallback(TrainerCallback):
 
     def on_save(self, args, state, control, **kwargs):
         processor_path = f"{args.output_dir}/checkpoint-{state.global_step}"        
-        # Access the processor and tokenizer from the model
-        model = state.trainer.model
-        if hasattr(model, "processor"):
-            model.processor.save_pretrained(processor_path)
-            model.processor.tokenizer.save_pretrained(processor_path)
-            print(f"Processor & Tokenizer saved at {processor_path}")
-        else:
-            print("Warning: Model does not have a processor attribute!")
+        if self.processor is None:
+            logging.info("Warning: processor instance not found!")
+            return
+        self.processor.save_pretrained(processor_path) # Save feature extractor
+        self.processor.tokenizer.save_pretrained(processor_path) # Save tokenizer
+        logging.info(f"Processor & Tokenizer saved at {processor_path}")

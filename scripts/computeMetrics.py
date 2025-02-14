@@ -4,6 +4,7 @@ import logging
 import evaluate
 
 def save_file(fout, lout):
+    os.makedirs(os.path.dirname(fout), exist_ok=True)  # Create parent directory if missing
     with open(fout, 'w') as f:
         for out in lout:
             f.write(out + "\n")
