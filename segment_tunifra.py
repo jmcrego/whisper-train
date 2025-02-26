@@ -20,7 +20,7 @@ def save_wav(waveform, sample_rate, output_path):
         waveform = waveform.unsqueeze(0)  # Add the channel dimension                                                                                                                                                                                                                              
     torchaudio.save(output_path, waveform, sample_rate)
 
-def clean_text(l):
+def clean_transcription(l):
     l = l.strip() #remove initial final spaces
     l = l.replace('...','')
     l = l.replace('&amp;','')
@@ -39,7 +39,7 @@ def get_segments(ftrs):
             match = re.search(r'<Sync time="([\d.]+)"/>', prev_str)
             if match:
                 time_value = float(match.group(1))
-                sentence = clean_text(l)
+                sentence = clean_transcription(l)
                 segments.append({'start':time_value, 'sentence':sentence})
             prev_str = l
     return segments

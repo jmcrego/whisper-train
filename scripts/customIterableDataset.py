@@ -68,7 +68,8 @@ def custom_iterable_dataset(files, language="french", sr=16000, mind=None, maxd=
         logging.info(f'read {files[i]}')
         with open(files[i],'r') as fd:
             for l in fd:
-                path, sentence = l.strip().split('\t')
+                toks = l.strip().split('\t')
+                path, sentence = toks[0], toks[1]
                 paths.append(path)
                 sentences.append(sentence)
                 languages.append(language)
