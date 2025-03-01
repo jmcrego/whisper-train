@@ -2,6 +2,7 @@ import os
 import time
 import logging
 import evaluate
+import sacrebleu
 
 def save_file(fout, lout):
     os.makedirs(os.path.dirname(fout), exist_ok=True)  # Create parent directory if missing
@@ -18,7 +19,7 @@ class compute_metrics():
         self.trainer = trainer
         self.save_dir = save_dir
         self.wer_metric = evaluate.load("wer", keep_in_memory=True)
-        self.bleu_metric = evaluate.load("bleu", keep_in_memory=True)
+        #self.bleu_metric = evaluate.load("bleu", keep_in_memory=True)
 
     def __call__(self, pred):
         return self.do_whisper(pred)
@@ -39,7 +40,8 @@ class compute_metrics():
 
         # compute scores
         scores = {}
-        bleu = 100 * self.bleu_metric.compute(predictions=pred_str, references=[[ref] for ref in label_str])['bleu']
+        #bleu = 100 * self.bleu_metric.compute(predictions=pred_str, references=[[ref] for ref in label_str])['bleu']
+        bleu = 100 * sacrebleu.corpus_bleu(pred_str, [label_str]).score
         scores["bleu"] = round(bleu,2)
         wer = 100 * self.wer_metric.compute(predictions=pred_str, references=label_str)
         scores["wer_ortho"] = round(wer,2)
