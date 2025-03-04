@@ -98,6 +98,7 @@ def custom_iterable_dataset(files, language="french", sr=16000, mind=None, maxd=
     if clean:
         logging.info('dataset: clean sentence')
         ds = ds.map(clean_sentence)
+        ds = ds.filter(lambda e: len(e['sentence'])) ## True keep, False filter
         
     if mind is not None or maxd is not None:
         logging.info(f'dataset: filter by {mind}<=duration<={maxd}')
