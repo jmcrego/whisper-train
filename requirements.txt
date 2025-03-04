@@ -1,9 +1,8 @@
 datasets==3.0.1
-evaluate==0.4.3
 torch==2.3.1
 torchaudio==2.3.1
-torchdata==0.8.0
+torchdata==0.9.0
 transformers==4.45.1
 peft==0.13.2
-evaluate==0.4.3
-
+jiwer==3.0.5
+sacrebleu==2.5.1

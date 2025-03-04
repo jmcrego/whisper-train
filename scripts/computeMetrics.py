@@ -1,8 +1,9 @@
 import os
 import time
 import logging
-import evaluate
+#import evaluate
 import sacrebleu
+import jiwer
 
 def save_file(fout, lout):
     os.makedirs(os.path.dirname(fout), exist_ok=True)  # Create parent directory if missing
@@ -18,7 +19,7 @@ class compute_metrics():
         self.normalizer = normalizer
         self.trainer = trainer
         self.save_dir = save_dir
-        self.wer_metric = evaluate.load("wer", keep_in_memory=True)
+        #self.wer_metric = evaluate.load("wer", keep_in_memory=True)
         #self.bleu_metric = evaluate.load("bleu", keep_in_memory=True)
 
     def __call__(self, pred):
@@ -43,7 +44,8 @@ class compute_metrics():
         #bleu = 100 * self.bleu_metric.compute(predictions=pred_str, references=[[ref] for ref in label_str])['bleu']
         bleu = 100 * sacrebleu.corpus_bleu(pred_str, [label_str]).score
         scores["bleu"] = round(bleu,2)
-        wer = 100 * self.wer_metric.compute(predictions=pred_str, references=label_str)
+        #wer = 100 * self.wer_metric.compute(predictions=pred_str, references=label_str)
+        wer = 100 * jiwer.wer(label_str, pred_str)
         scores["wer_ortho"] = round(wer,2)
 
         if self.normalizer is not None:
@@ -56,7 +58,8 @@ class compute_metrics():
             label_str_norm = [label_str_norm[i] for i in range(len(label_str_norm)) if len(label_str_norm[i])]
 
             # compute score
-            wer = 100 * self.wer_metric.compute(predictions=pred_str_norm, references=label_str_norm)
+            #wer = 100 * self.wer_metric.compute(predictions=pred_str_norm, references=label_str_norm)
+            wer = 100 * jiwer.wer(label_str_norm, pred_str_norm)
             scores['wer'] = round(wer,2)
 
         if self.save_dir is not None:
