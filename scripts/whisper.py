@@ -126,8 +126,8 @@ class whisper:
         max_label_length = None #self.model.config.max_length
         min_duration = None #0.0
         max_duration = None #30.0
-        ds_train = custom_iterable_dataset(train_datasets, language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=False, seed=seed, processor=self.processor, iterable=True)
-        ds_eval  = custom_iterable_dataset(eval_datasets,  language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=False, seed=None, processor=self.processor, iterable=False)
+        ds_train = custom_iterable_dataset(train_datasets, language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=seed, processor=self.processor, iterable=True)
+        ds_eval  = custom_iterable_dataset(eval_datasets,  language=self.language, sr=16000, mind=min_duration, maxd=max_duration, minl=min_label_length, maxl=max_label_length, clean=True, seed=None, processor=self.processor, iterable=False)
 
         logging.info(f"Training dataset size: {len(ds_train)}")
         logging.info(f"Batch size: {batch_size}")
