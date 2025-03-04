@@ -42,7 +42,7 @@ class compute_metrics():
         # compute scores
         scores = {}
         #bleu = 100 * self.bleu_metric.compute(predictions=pred_str, references=[[ref] for ref in label_str])['bleu']
-        bleu = 100 * sacrebleu.corpus_bleu(pred_str, [label_str]).score
+        bleu = sacrebleu.corpus_bleu(pred_str, [label_str]).score
         scores["bleu"] = round(bleu,2)
         #wer = 100 * self.wer_metric.compute(predictions=pred_str, references=label_str)
         wer = 100 * jiwer.wer(label_str, pred_str)
